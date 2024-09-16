@@ -1,8 +1,10 @@
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, Flask
 from flask_login import login_user, logout_user, current_user, login_required
 from app.models import User
 from app import app, db, bcrypt
 from app.forms import RegistrationForm, LoginForm
+from app.forms import EditProfileForm
+
 
 @app.route('/')
 @app.route('/home')
@@ -47,3 +49,34 @@ def logout():
 @login_required
 def account():
     return render_template('account.html')
+
+
+@app.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    form = EditProfileForm()
+
+    if form.validate_on_submit():
+        # Обновляем данные пользователя
+        current_user.username = form.name.data
+        current_user.email = form.email.data
+        if form.password.data:
+            hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+            current_user.password = hashed_password
+
+        # Сохраняем изменения в базе данных
+        db.session.commit()
+
+        # Сообщаем об успешном обновлении профиля
+        flash(f'Профиль {current_user.username} успешно обновлен!', 'success')
+
+        # Перенаправляем на главную страницу
+        return redirect(url_for('home'))
+
+    # Если GET-запрос или форма не прошла валидацию, загружаем текущие данные пользователя
+    elif request.method == 'GET':
+        form.name.data = current_user.username
+        form.email.data = current_user.email
+
+    return render_template('edit_profile.html', form=form)
+
